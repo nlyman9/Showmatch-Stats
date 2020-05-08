@@ -1,0 +1,59 @@
+1v1 Showmatch Stats
+
+Task: Gets stats from all of JohnnyBoi_i's YouTube 1v1 showmatch videos
+These stats include players, wins, goals, players played against, points, saves, shots
+
+Process:
+
+- Get stats data from YouTube
+- Build database for stats
+- Build application and GUI and website for using the database
+
+Step 1:
+
+How to get stats from YouTube?
+
+Can get these stats from the video title, and parsing end game stats screen of each game played
+
+Best way to parse end game stats screen?
+
+- Use python, opencv, and pytesseract to parse image data into text (MOSTLY DONE)
+
+Step 2:
+
+- Figure out a way to break down youtube videos into images.
+Would be handy to do this on a specific part of the screen. One image that just selects the timer
+which is parsed into a number. We want it to be 0 before we start taking screenshots and testing if the game has ended
+
+- After we figured out that the game has ended, take a screenshot of the scoreboard
+- Find a way to figure out if the series has ended. Add intermediate results together to see if it works.
+
+Step 3:
+
+- Create a structure that can house the data from the rocket league games, preferably a database.
+- Decide what database we want to use and figure out how to implement it
+
+Step 4:
+
+- Wrap the database in a web application that people can use to look up stats about Johnny's 1v1 matches
+- ???
+- Profit
+
+NOTES:
+
+- have to find point in video when stats screen is then figure out a way to read the text in the image
+- to find the point, can skip video until timer = 0, then take images of video every few seconds until the stats
+screen is shown, and then reset for the next game
+- Can shorten videos by using streamable.com
+- Can get images from videos in a playlist using VCL
+- Can add these shortened videos to a personal playlist in youtube?
+- 9 seconds between game ending and stats screen shown
+
+
+Workflow of Project:
+
+1. Get YouTube video urls to download through 4k video downloader
+2. Download videos programmatically
+3. Run OCR on video frames to go through video quickly and get stats information
+4. Delete original videos
+5. Compile stats
