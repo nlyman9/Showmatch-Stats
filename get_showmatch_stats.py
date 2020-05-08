@@ -5,7 +5,7 @@ import cv2
 import os
 import sys
 import uuid
-from multiprocessing import Process
+from multiprocessing import Process, current_process
 
 
 class getShowMatchStats:
@@ -47,7 +47,7 @@ class getShowMatchStats:
 
     # Do Optical Character Recognition on img
     def ocr(self, img, config):
-        lang = False  # Flag for if using a trained language or not
+        langstats = False  # Flag for if using a trained language or not
         langtimer = False  # Flag for the timer language
 
         if config == "timer":
@@ -57,8 +57,8 @@ class getShowMatchStats:
             custom_config = r'-c tessedit_char_blacklist=., --psm 8'
         elif config == "single":
             # print("Using single digit")
-            lang = True
-            custom_config = r' --psm 10 outputbase digits'
+            langstats = True
+            custom_config = r' --psm 8 outputbase digits'
         else:
             custom_config = r'--psm 7'
         pytesseract.pytesseract.tesseract_cmd = 'D:/Program Files/Tesseract-OCR/tesseract.exe'
@@ -67,19 +67,19 @@ class getShowMatchStats:
         gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
         filename = "{}.jpg".format(str(uuid.uuid4()))
         cv2.imwrite(filename, gray)
-        if lang:
+        if langstats:
             text = pytesseract.image_to_string(Image.open(filename), lang='rl', config=custom_config)
         elif langtimer:
             text = pytesseract.image_to_string(Image.open(filename), lang='langtimer', config=custom_config)
         else:
             text = pytesseract.image_to_string(Image.open(filename), config=custom_config)
         os.remove(filename)
-        print("Text", text)
+        # print("Text", text)
         # show the output images
         # cv2.imshow("Image", img)
-        cv2.imshow("Output", gray)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # cv2.imshow("Output", gray)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
         return text
 
     def editvideo(self, vid, bar, era):
@@ -107,9 +107,9 @@ class getShowMatchStats:
                     self.timer_zero = True
                     # Check timer every second to get when the ball actually hits the ground ending the game
                     winner = self.wait_ball_hit_ground(frame, bar, era)
-                    print("Winner is currently:", winner)
+                    # print("Winner is currently:", winner)
                     if winner == "winner":
-                        print("Winner winner chicken dinner")
+                        # print("Winner winner chicken dinner")
                         self.winner_chosen = True
                         # The game has officially ended
                 count = 0
@@ -123,14 +123,14 @@ class getShowMatchStats:
                 if count == self.endgametime:
                     # Get information from the stats screen
                     self.capture_stats_screen(frame, bar)
-                    cv2.waitKey(0)
+                    # cv2.waitKey(0)
                     self.initial_frame = True
                     self.timer_zero = False
                     self.winner_chosen = False
                     count = 0
             count += 1
             # print("Count", count, "endgametime", self.endgametime)
-            cv2.imshow('frame', gray)
+            # cv2.imshow('frame', gray)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -140,7 +140,7 @@ class getShowMatchStats:
     # Crop the frame so that it just includes the timer using 720p res
     def crop_image_timer(self, frame, bar):
         if bar == "bar":
-            cv2.imwrite("timer.jpg", frame)
+            # cv2.imwrite("timer.jpg", frame)
             crop_img = frame[13:42, 590:695]
         else:
             crop_img = frame[23:62, 590:695]
@@ -151,14 +151,11 @@ class getShowMatchStats:
         digitlist = []
         for digit in range(len(time)):
             if time[digit] == ':':
-                print("Digit was :, not appending")
+                # print("Digit was :, not appending")
+                pass
             else:
                 digitlist.append(int(time[digit]))
         if len(digitlist) == 3:
-            print("digitlist len: ", 3)
-            print("digitlist 0: ", digitlist[0])
-            print("digitlist 1: ", digitlist[1])
-            print("digitlist 2: ", digitlist[2])
             end_game = ((digitlist[0] * 60) + (digitlist[1] * 10) + digitlist[2]) * 30
             if end_game == 0:
                 return end_game
@@ -166,34 +163,35 @@ class getShowMatchStats:
                 # Set the previous timer value and set endgame = 30 to get the next second
                 self.verify_previous_timer_val = end_game
                 end_game = 30
-                print("Setting previous val =", self.verify_previous_timer_val, "and taking a screenshot in next second")
+                # print("Setting previous val =", self.verify_previous_timer_val, "and taking a screenshot in next second")
             else:
                 # If this == 1 or 0, the timer's time is verified
-                if (self.verify_previous_timer_val - end_game) == 30 or (self.verify_previous_timer_val - end_game) == 0:
+                if (self.verify_previous_timer_val - end_game) == 30 or (
+                        self.verify_previous_timer_val - end_game) == 0:
                     # Verified
-                    print("Subtraction equals 0 or 1 so timer is verified")
+                    # print("Subtraction equals 0 or 1 so timer is verified")
                     self.verify_previous_timer_val = -1
                 else:
                     # Timer is not verified, take another timer value at next second
-                    print("Some number was messed up. Taking a screenshot in next second and setting previous =", self.verify_previous_timer_val, "to", end_game)
+                    # print("Some number was messed up. Taking a screenshot in next second and setting previous =", self.verify_previous_timer_val, "to", end_game)
                     self.verify_previous_timer_val = end_game
                     end_game = 30
         else:
-            print("Digitlist is not 3, taking new screenshot after a second")
+            # print("Digitlist is not 3, taking new screenshot after a second")
             end_game = 30  # This makes the timer wait one second before selecting again
 
         # Store the previous timer value into a global variable
         # Have -1 as the need to set value of the global variable and anything else means you should compare the current val to the previous val
         # To make sure it's valid make sure the previous value - the current value = 1 or 0.
 
-        print("Next timer check is in", (end_game / 30), "second(s)")
+        # print("Next timer check is in", (end_game / 30), "second(s)")
         return end_game
 
     def get_timer_value(self, frame, bar):
         cframe = self.crop_image_timer(frame, bar)
         text = self.ocr(cframe, "timer")
         self.endgametime = self.calc_new_end_game(text)
-        print("endgametime = ", self.endgametime)
+        # print("endgametime = ", self.endgametime)
         # We have already gotten the frame after 5 minutes so now get the frame once the game ends
 
     def wait_ball_hit_ground(self, frame, bar, era):
@@ -216,7 +214,7 @@ class getShowMatchStats:
         return crop_img
 
     def scaleup(self, frame, scale):
-        scale_percent = scale*100
+        scale_percent = scale * 100
         width = int(frame.shape[1] * scale_percent / 100)
         height = int(frame.shape[0] * scale_percent / 100)
         dsize = (width, height)
@@ -227,67 +225,78 @@ class getShowMatchStats:
     # Convert the stats screen to strings
     def capture_stats_screen(self, frame, orientation):
         if orientation == "bar":
+            filename = "{}.txt".format(current_process().name)# "{}.txt".format(str(uuid.uuid4()))
+            newfile = open(filename, "w")
             # Get name for top
             frame_topname = frame[self.frame_top_name2[0]:self.frame_top_name2[1],
                             self.frame_top_name2[2]:self.frame_top_name2[3]]
             frame_topname = self.scaleup(frame_topname, 3)
             # cv2.imwrite("topname.jpg", frame_topname)
             topname = self.ocr(frame_topname, "name")
-            print("Top name is:", topname)
+            # print("Top name is:", topname)
             # Get goals for top
             frame_topgoals = frame[self.frame_stats_goals_top2[0]:self.frame_stats_goals_top2[1],
                              self.frame_stats_goals_top2[2]:self.frame_stats_goals_top2[3]]
             frame_topgoals = self.scaleup(frame_topgoals, 3)
             topgoals = self.ocr(frame_topgoals, "single")
-            print("Top goals is:", topgoals)
+            # print("Top goals is:", topgoals)
             # Get assists for top
             frame_topassists = frame[self.frame_stats_assists_top2[0]:self.frame_stats_assists_top2[1],
                                self.frame_stats_assists_top2[2]:self.frame_stats_assists_top2[3]]
             frame_topassists = self.scaleup(frame_topassists, 3)
             topassists = self.ocr(frame_topassists, "single")
-            print("Top assists is:", topassists)
+            # print("Top assists is:", topassists)
             # Get saves for top
             frame_topsaves = frame[self.frame_stats_saves_top2[0]:self.frame_stats_saves_top2[1],
                              self.frame_stats_saves_top2[2]:self.frame_stats_saves_top2[3]]
             frame_topsaves = self.scaleup(frame_topsaves, 3)
             topsaves = self.ocr(frame_topsaves, "single")
-            print("Top saves is:", topsaves)
+            # print("Top saves is:", topsaves)
             # Get shots for top
             frame_topshots = frame[self.frame_stats_shots_top2[0]:self.frame_stats_shots_top2[1],
                              self.frame_stats_shots_top2[2]:self.frame_stats_shots_top2[3]]
             frame_topshots = self.scaleup(frame_topshots, 3)
             topshots = self.ocr(frame_topshots, "single")
-            print("Top shots is:", topshots)
+            # print("Top shots is:", topshots)
             # Get name for bot
             frame_botname = frame[self.frame_bot_name2[0]:self.frame_bot_name2[1],
                             self.frame_bot_name2[2]:self.frame_bot_name2[3]]
             frame_botname = self.scaleup(frame_botname, 3)
             botname = self.ocr(frame_botname, "name")
-            print("Bot name is:", botname)
+            # print("Bot name is:", botname)
             # Get goals for bot
             frame_botgoals = frame[self.frame_stats_goals_bot2[0]:self.frame_stats_goals_bot2[1],
                              self.frame_stats_goals_bot2[2]:self.frame_stats_goals_bot2[3]]
             frame_botgoals = self.scaleup(frame_botgoals, 3)
             botgoals = self.ocr(frame_botgoals, "single")
-            print("Bot goals is:", botgoals)
+            # print("Bot goals is:", botgoals)
             # Get assists for bot
             frame_botassists = frame[self.frame_stats_assists_bot2[0]:self.frame_stats_assists_bot2[1],
                                self.frame_stats_assists_bot2[2]:self.frame_stats_assists_bot2[3]]
             frame_botassists = self.scaleup(frame_botassists, 3)
             botassists = self.ocr(frame_botassists, "single")
-            print("Bot assists is:", botassists)
+            # print("Bot assists is:", botassists)
             # Get saves for bot
             frame_botsaves = frame[self.frame_stats_saves_bot2[0]:self.frame_stats_saves_bot2[1],
                              self.frame_stats_saves_bot2[2]:self.frame_stats_saves_bot2[3]]
             frame_botsaves = self.scaleup(frame_botsaves, 3)
             botsaves = self.ocr(frame_botsaves, "single")
-            print("Bot saves is:", botsaves)
+            # print("Bot saves is:", botsaves)
             # Get shots for bot
             frame_botshots = frame[self.frame_stats_shots_bot2[0]:self.frame_stats_shots_bot2[1],
                              self.frame_stats_shots_bot2[2]:self.frame_stats_shots_bot2[3]]
             frame_botshots = self.scaleup(frame_botshots, 3)
             botshots = self.ocr(frame_botshots, "single")
-            print("Bot shots is:", botshots)
+            # print("Bot shots is:", botshots)
+
+            # File operations
+            newfile.write("Name: " + topname + "\n")
+            newfile.write(
+                "Goals: " + topgoals + "\tAssists: " + topassists + "\tSaves: " + topsaves + "\tShots: " + topshots + "\n")
+            newfile.write("Name: " + botname + "\n")
+            newfile.write(
+                "Goals: " + botgoals + "\tAssists: " + botassists + "\tSaves: " + botsaves + "\tShots: " + botshots + "\n")
+            newfile.close()
         else:
             # Get name for top
             frame_topname = frame[self.frame_top_name[0]:self.frame_top_name[1],
@@ -295,61 +304,61 @@ class getShowMatchStats:
             frame_topname = self.scaleup(frame_topname, 3)
             # cv2.imwrite("topname.jpg", frame_topname)
             topname = self.ocr(frame_topname, "name")
-            print("Top name is:", topname)
+            # print("Top name is:", topname)
             # Get goals for top
             frame_topgoals = frame[self.frame_stats_goals_top[0]:self.frame_stats_goals_top[1],
                              self.frame_stats_goals_top[2]:self.frame_stats_goals_top[3]]
             frame_topgoals = self.scaleup(frame_topgoals, 3)
             topgoals = self.ocr(frame_topgoals, "single")
-            print("Top goals is:", topgoals)
+            # print("Top goals is:", topgoals)
             # Get assists for top
             frame_topassists = frame[self.frame_stats_assists_top[0]:self.frame_stats_assists_top[1],
                                self.frame_stats_assists_top[2]:self.frame_stats_assists_top[3]]
             frame_topassists = self.scaleup(frame_topassists, 3)
             topassists = self.ocr(frame_topassists, "single")
-            print("Top assists is:", topassists)
+            # print("Top assists is:", topassists)
             # Get saves for top
             frame_topsaves = frame[self.frame_stats_saves_top[0]:self.frame_stats_saves_top[1],
                              self.frame_stats_saves_top[2]:self.frame_stats_saves_top[3]]
             frame_topsaves = self.scaleup(frame_topsaves, 3)
             topsaves = self.ocr(frame_topsaves, "single")
-            print("Top saves is:", topsaves)
+            # print("Top saves is:", topsaves)
             # Get shots for top
             frame_topshots = frame[self.frame_stats_shots_top[0]:self.frame_stats_shots_top[1],
                              self.frame_stats_shots_top[2]:self.frame_stats_shots_top[3]]
             frame_topshots = self.scaleup(frame_topshots, 3)
             topshots = self.ocr(frame_topshots, "single")
-            print("Top shots is:", topshots)
+            # print("Top shots is:", topshots)
             # Get name for bot
             frame_botname = frame[self.frame_bot_name[0]:self.frame_bot_name[1],
                             self.frame_bot_name[2]:self.frame_bot_name[3]]
             frame_botname = self.scaleup(frame_botname, 3)
             botname = self.ocr(frame_botname, "name")
-            print("Bot name is:", botname)
+            # print("Bot name is:", botname)
             # Get goals for bot
             frame_botgoals = frame[self.frame_stats_goals_bot[0]:self.frame_stats_goals_bot[1],
                              self.frame_stats_goals_bot[2]:self.frame_stats_goals_bot[3]]
             frame_botgoals = self.scaleup(frame_botgoals, 3)
             botgoals = self.ocr(frame_botgoals, "single")
-            print("Bot goals is:", botgoals)
+            # print("Bot goals is:", botgoals)
             # Get assists for bot
             frame_botassists = frame[self.frame_stats_assists_bot[0]:self.frame_stats_assists_bot[1],
                                self.frame_stats_assists_bot[2]:self.frame_stats_assists_bot[3]]
             frame_botassists = self.scaleup(frame_botassists, 3)
             botassists = self.ocr(frame_botassists, "single")
-            print("Bot assists is:", botassists)
+            # print("Bot assists is:", botassists)
             # Get saves for bot
             frame_botsaves = frame[self.frame_stats_saves_bot[0]:self.frame_stats_saves_bot[1],
                              self.frame_stats_saves_bot[2]:self.frame_stats_saves_bot[3]]
             frame_botsaves = self.scaleup(frame_botsaves, 3)
             botsaves = self.ocr(frame_botsaves, "single")
-            print("Bot saves is:", botsaves)
+            # print("Bot saves is:", botsaves)
             # Get shots for bot
             frame_botshots = frame[self.frame_stats_shots_bot[0]:self.frame_stats_shots_bot[1],
                              self.frame_stats_shots_bot[2]:self.frame_stats_shots_bot[3]]
             frame_botshots = self.scaleup(frame_botshots, 3)
             botshots = self.ocr(frame_botshots, "single")
-            print("Bot shots is:", botshots)
+            # print("Bot shots is:", botshots)
 
     # Helper function to do an OCR on a specific part of a frame of a video that happens after seconds_into_video seconds
     def get_ocr(self, vid, seconds_into_video, topy, topyplush, topx, topxplusw):
@@ -380,26 +389,29 @@ class getShowMatchStats:
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-def run_new_video(vid, bar, era):
+
+def run_new_video(vid):
     stats = getShowMatchStats()
-    stats.editvideo(vid, bar, era)
+    stats.editvideo(vid, "bar", -1)
 
 
 if __name__ == '__main__':
-    stats = getShowMatchStats()
+    # stats = getShowMatchStats()
+
+    vid_titles = ['Videos/test_video2.mp4', 'Videos/test_video3.mp4']
     procs = []
-    proc = Process(target=)
+    for title in vid_titles:
+        proc = Process(target=run_new_video, args=(title,))
+        procs.append(proc)
+        proc.start()
+
+    for proc in procs:
+        proc.join()
+
     # stats.editvideo('Videos/Kronovi vs Scrub Killa 1v1 part 2.mp4', "bar", 1)
 
     # stats.get_ocr('Videos/test_video2.mp4', 40, 290, 320, 820, 855)
-    # frame = cv2.imread("winner.jpg")
-
-    # winframe = frame[290:338, 555:725]
-    # stats.ocr(winframe, "winner")
-    # cv2.imwrite("added.jpg", final)
-    # botgoalframe = frame[395:425, 830:865]
-    # stats.ocr(botgoalframe, "stats")
 
     # Test algorithm on more videos from different series
-    # Get double digit numbers in stats working
-    # Figure out how to play videos faster/download lots of videos at once
+    # Program way to modify arguments of video in each process easily using an argument list
+    # list = [0, 1, 2] 0 corresponds to era being 1, bar being "bar" etc.
