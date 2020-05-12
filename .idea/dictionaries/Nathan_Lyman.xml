@@ -1,17 +1,43 @@
 <component name="ProjectDictionaryState">
   <dictionary name="Nathan Lyman">
     <words>
+      <w>arglist</w>
+      <w>botassists</w>
+      <w>botframe</w>
+      <w>botgoals</w>
+      <w>botname</w>
+      <w>botsaves</w>
+      <w>botshots</w>
+      <w>botx</w>
+      <w>botxplusw</w>
+      <w>boty</w>
+      <w>botyplush</w>
       <w>cframe</w>
       <w>digitlist</w>
       <w>editvideo</w>
       <w>endgametime</w>
+      <w>imshow</w>
+      <w>imwrite</w>
       <w>initialendgametime</w>
       <w>langstats</w>
       <w>langtimer</w>
+      <w>newfile</w>
+      <w>numframes</w>
+      <w>proc</w>
+      <w>procs</w>
       <w>screenshot</w>
+      <w>scsh</w>
+      <w>subframe</w>
+      <w>subframes</w>
       <w>tessedit</w>
       <w>tesseract</w>
       <w>timerval</w>
+      <w>topassists</w>
+      <w>topframe</w>
+      <w>topgoals</w>
+      <w>topname</w>
+      <w>topsaves</w>
+      <w>topshots</w>
     </words>
   </dictionary>
 </component>
