@@ -16,9 +16,12 @@
       <w>digitlist</w>
       <w>editvideo</w>
       <w>endgametime</w>
+      <w>grabcount</w>
       <w>imshow</w>
       <w>imwrite</w>
       <w>initialendgametime</w>
+      <w>isreplay</w>
+      <w>langreplay</w>
       <w>langstats</w>
       <w>langtimer</w>
       <w>newfile</w>

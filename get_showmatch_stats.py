@@ -16,6 +16,10 @@ class getShowMatchStats:
         self.initial_frame = True  # Flag for getting the initial timer capture
         self.timer_zero = False  # Flag for if the timer equals zero
         self.winner_chosen = False  # Flag for if winner has been displayed
+        self.isreplay = False
+        self.grabcount = True
+        self.check_for_replay = False
+        self.temp = 0
 
         # self.frame_stats_score_top = [305, 335, 745, 805]  # Dimensions for capturing the score on top
         # self.frame_stats_score_bot = [410, 440, 745, 805]  # Dimensions for capturing the score on bottom
@@ -35,11 +39,13 @@ class getShowMatchStats:
 
         self.game_number = 1
         self.show_ocr = True
+        self.show_video = True
 
     # Do Optical Character Recognition on img
     def ocr(self, img, config):
-        langstats = False  # Flag for if using a trained language or not
+        langstats = False  # Flag for the stats language
         langtimer = False  # Flag for the timer language
+        langreplay = False  # Flag for the replay language
 
         if config == "timer":
             langtimer = True
@@ -50,6 +56,9 @@ class getShowMatchStats:
             # print("Using single digit")
             langstats = True
             custom_config = r' --psm 8 outputbase digits'
+        elif config == "replay":
+            langreplay = True
+            custom_config = r' --psm 8'
         else:
             custom_config = r'--psm 7'
         pytesseract.pytesseract.tesseract_cmd = 'D:/Program Files/Tesseract-OCR/tesseract.exe'
@@ -62,6 +71,8 @@ class getShowMatchStats:
             text = pytesseract.image_to_string(Image.open(filename), lang='rl', config=custom_config)
         elif langtimer:
             text = pytesseract.image_to_string(Image.open(filename), lang='langtimer', config=custom_config)
+        elif langreplay:
+            text = pytesseract.image_to_string(Image.open(filename), lang='replay', config=custom_config)
         else:
             text = pytesseract.image_to_string(Image.open(filename), config=custom_config)
         os.remove(filename)
@@ -104,8 +115,13 @@ class getShowMatchStats:
                 # Wait 12 seconds for stats screen to show
                 if era == 1:
                     self.endgametime = 150
-                elif 2 <= era <= 4:
+                elif 2 <= era <= 4 or era == 6:
                     self.endgametime = 360
+                elif era == 5:
+                    self.endgametime = 300
+                elif era == 7 or era == 8:
+                    # Wait 9 seconds instead because shorter celebration
+                    self.endgametime = 270
                 else:
                     # self.endgametime = 390
                     # Try 12 seconds to grab scoreboard
@@ -116,15 +132,43 @@ class getShowMatchStats:
                     # Get information from the stats screen
                     self.capture_stats_screen(frame, filename, era)
                     # cv2.waitKey(0)
+                    # Check for 1 minute if the next game is simply a replay
+                    if self.game_number > 1:
+                        self.check_for_replay = True
                     self.initial_frame = True
                     self.timer_zero = False
                     self.winner_chosen = False
+                    self.initialendgametime = 9000  # Check timer after 5 mins
                     self.endgametime = -1
+                    count = 0
                     self.game_number += 1
+
+            if self.check_for_replay:
+                if self.grabcount:
+                    self.temp = count
+                    self.grabcount = False
+                if count - self.temp <= 2100:   # Check for 1 minute, 10 seconds
+                    # Check every second for the notice screen tkhat the rest of video is replays
+                    if count % 30 == 0:
+                        text = self.check_for_replay_screen(frame, era)
+                        if text == "replay":
+                            # The next games of the video are just replays
+                            print("Rest of the video is replay")
+                            break
+                else:
+                    # This is a legitimate game that should be counted so reset
+                    self.initial_frame = True
+                    self.timer_zero = False
+                    self.winner_chosen = False
+                    self.initialendgametime = 7200  # Check timer after 4 mins
+                    self.endgametime = -1
+                    self.grabcount = True
+                    self.check_for_replay = False
                     count = 0
             count += 1
             print("Count", count, "endgametime", self.endgametime)
-            cv2.imshow('frame', gray)
+            if self.show_video:
+                cv2.imshow('frame', gray)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -134,10 +178,12 @@ class getShowMatchStats:
     # Crop the frame so that it just includes the timer using 720p res
     def crop_image_timer(self, frame, era):
         crop_img = -1
-        if era == 1 or era == 2 or era == 3:
+        if 1 <= era <= 3:
             crop_img = frame[13:42, 590:695]
-        elif era == 4:
+        elif era == 4 or era == 5 or era == 8:
             crop_img = frame[10:35, 600:685]
+        elif era == 6 or era == 7:
+            crop_img = frame[25:50, 600:685]
         return crop_img
 
     # Get the number of frames until the end of the rocket league game at 30fps
@@ -184,6 +230,11 @@ class getShowMatchStats:
             end_game = end_game - 30
         return end_game
 
+    def check_for_replay_screen(self, frame, era):
+        cframe = self.crop_image_replay(frame, era)
+        text = self.ocr(cframe, "replay")
+        return text
+
     def get_timer_value(self, frame, era):
         cframe = self.crop_image_timer(frame, era)
         text = self.ocr(cframe, "timer")
@@ -199,14 +250,28 @@ class getShowMatchStats:
         crop_img = frame[20:65, 585:700]
         return crop_img
 
+    def crop_image_replay(self, frame, era):
+        if 5 <= era <= 7:
+            frame = frame[80:190, 505:825]  # Used in vid 211
+        elif era == 8:
+            frame = frame[80:220, 505:825]  # Used in vid 716
+        return frame
+
     def crop_image_winner(self, frame, era):
         crop_img = -1
         if era == 1:
             crop_img = frame[275:325, 540:740]
         elif era == 2 or era == 3:
             crop_img = frame[280:325, 555:725]
-        elif era == 4:
+        elif era == 4 or era == 5:
             crop_img = frame[305:330, 577:703]
+        elif era == 6:  # or era == 7: # This is for era 7 without the series, aka era 7 after vid
+            crop_img = frame[306:332, 577:703]
+        elif era == 7:
+            # This is for when the winner is displayed for the series
+            crop_img = frame[306:332, 635:730]
+        elif era == 8:
+            crop_img = frame[302:330, 590:690]
         return crop_img
 
     def show_ocr_result(self, text, gray, img):
@@ -241,25 +306,73 @@ class getShowMatchStats:
             botsaves_dim = [395, 425, 960, 995]
             botshots_dim = [395, 425, 1015, 1055]
 
-            subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim, botgoals_dim, botassists_dim, botsaves_dim, botshots_dim]
+            subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim,
+                         botgoals_dim, botassists_dim, botsaves_dim, botshots_dim]
 
             self.write_to_file(frame, filename, subframes)
-        elif era == 4:
+        elif era == 4 or era == 5:
             topname_dim = [300, 325, 545, 695]
             topgoals_dim = [300, 325, 775, 805]
             topassists_dim = [300, 325, 823, 855]
             topsaves_dim = [300, 325, 878, 905]
-            topshots_dim = [300, 325, 920, 950]
+            topshots_dim = [300, 325, 930, 960]
             botname_dim = [375, 400, 545, 695]
             botgoals_dim = [380, 405, 775, 805]
             botassists_dim = [380, 405, 823, 855]
             botsaves_dim = [380, 405, 878, 905]
-            botshots_dim = [380, 405, 920, 950]
+            botshots_dim = [380, 405, 930, 960]
 
-            subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim, botgoals_dim, botassists_dim, botsaves_dim, botshots_dim]
+            subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim,
+                         botgoals_dim, botassists_dim, botsaves_dim, botshots_dim]
 
             self.write_to_file(frame, filename, subframes)
+        elif era == 6:
+            topname_dim = [305, 320, 550, 695]
+            topgoals_dim = [307, 330, 765, 795]
+            topassists_dim = [305, 330, 815, 845]
+            topsaves_dim = [305, 330, 870, 895]
+            topshots_dim = [305, 330, 920, 948]
+            botname_dim = [378, 395, 550, 695]
+            botgoals_dim = [380, 405, 765, 795]
+            botassists_dim = [380, 405, 815, 845]
+            botsaves_dim = [380, 405, 870, 895]
+            botshots_dim = [380, 405, 920, 950]
 
+            subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim,
+                         botgoals_dim, botassists_dim, botsaves_dim, botshots_dim]
+
+            self.write_to_file(frame, filename, subframes)
+        elif era == 7:
+            topname_dim = [300, 310, 525, 700]
+            topgoals_dim = [300, 320, 745, 770]
+            topassists_dim = [300, 320, 795, 820]
+            topsaves_dim = [300, 320, 845, 870]
+            topshots_dim = [300, 320, 895, 920]
+            botname_dim = [383, 395, 525, 700]
+            botgoals_dim = [380, 400, 745, 770]
+            botassists_dim = [380, 400, 795, 820]
+            botsaves_dim = [380, 400, 845, 870]
+            botshots_dim = [380, 400, 895, 920]
+
+            subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim,
+                         botgoals_dim,
+                         botassists_dim, botsaves_dim, botshots_dim]
+            self.write_to_file(frame, filename, subframes)
+        elif era == 8:
+            topname_dim = [295, 310, 520, 675]
+            topgoals_dim = [297, 317, 750, 775]
+            topassists_dim = [297, 317, 800, 825]
+            topsaves_dim = [297, 317, 855, 880]
+            topshots_dim = [297, 317, 910, 935]
+            botname_dim = [380, 395, 520, 675]
+            botgoals_dim = [382, 402, 750, 775]
+            botassists_dim = [382, 402, 800, 825]
+            botsaves_dim = [382, 402, 855, 880]
+            botshots_dim = [382, 402, 910, 935]
+            subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim,
+                         botgoals_dim,
+                         botassists_dim, botsaves_dim, botshots_dim]
+            self.write_to_file(frame, filename, subframes)
     # Get name for top
     def get_name(self, frame, subframe):
         name = frame[subframe[0]:subframe[1], subframe[2]:subframe[3]]
@@ -284,6 +397,7 @@ class getShowMatchStats:
                 newfile.write(info + ",")
             else:
                 info = self.get_stat(frame, fr)
+                # print("Stat: ", info)
                 if count == 4:
                     newfile.write(info + "\n")
                 else:
@@ -292,7 +406,8 @@ class getShowMatchStats:
         newfile.close()
 
     # Helper function to do an OCR on a specific part of a frame of a video that happens after seconds_into_video seconds
-    def get_ocr(self, vid, seconds_into_video, seconds_into_video2, seconds_into_video3): #topy, topyplush, topx, topxplusw):
+    def get_ocr(self, vid, seconds_into_video, seconds_into_video2,
+                seconds_into_video3):  # topy, topyplush, topx, topxplusw):
         cap = cv2.VideoCapture(vid)
         count = 0
         numFrames = seconds_into_video * 30
@@ -302,10 +417,13 @@ class getShowMatchStats:
         while cap.isOpened():
             ret, frame = cap.read()
             # grayscale it
-            # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             if count == numFrames or count == numFrames2 or count == numFrames3:
                 # Crop image using parameters
                 # Get top score from arguments
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                cv2.imshow('frame', gray)
+                # cv2.waitKey(0)
                 cv2.imwrite("{}.jpg".format(str(uuid.uuid4())), frame)
                 # topframe = frame[topy:topyplush, topx:topxplusw]
                 # topframe = self.crop_image_timer(frame)
@@ -320,8 +438,10 @@ class getShowMatchStats:
                 count += 1
             else:
                 count += 1
+            # if count % 1000 == 0:
+            print("Count", count, "numframes3:", numFrames3)
             # print("Count", count, "numframes:", numFrames)
-            # cv2.imshow('frame', gray)
+            cv2.imshow('frame', gray)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
@@ -345,7 +465,7 @@ if __name__ == '__main__':
     # List of arguments. list[0] is the video string, list[1] is the bar string, list[2] is the era integer
 
     # Input number of args for how many videos to run at the same time
-    args1 = ['Videos/vid96.mp4', 'Results/vid96-', 4]
+    args1 = ['Videos/vid529.mp4', 'Results/vid529-', 8]
     list_of_args = [args1]
     procs = []
     for ls in list_of_args:
@@ -357,18 +477,18 @@ if __name__ == '__main__':
         proc.join()
 
     # Uncomment these lines to figure out dimensions for new eras
-    # stats.get_ocr('Videos/vid96.mp4', 141, 578, 590)
-    # frame = cv2.imread("vid96scoreboard.jpg")
-    # topname_dim = [300, 325, 545, 695]
-    # topgoals_dim = [300, 325, 775, 805]
-    # topassists_dim = [300, 325, 823, 855]
-    # topsaves_dim = [300, 325, 878, 905]
-    # topshots_dim = [300, 325, 920, 950]
-    # botname_dim = [375, 400, 545, 695]
-    # botgoals_dim = [380, 405, 775, 805]
-    # botassists_dim = [380, 405, 823, 855]
-    # botsaves_dim = [380, 405, 878, 905]
-    # botshots_dim = [380, 405, 920, 950]
+    # stats.get_ocr('Videos/vid403.mp4', 200, 514, 528)
+    # frame = cv2.imread("vid403scoreboard.jpg")
+    # topname_dim = [295, 310, 520, 675]
+    # topgoals_dim = [297, 317, 750, 775]
+    # topassists_dim = [297, 317, 800, 825]
+    # topsaves_dim = [297, 317, 855, 880]
+    # topshots_dim = [297, 317, 910, 935]
+    # botname_dim = [380, 395, 520, 675]
+    # botgoals_dim = [382, 402, 750, 775]
+    # botassists_dim = [382, 402, 800, 825]
+    # botsaves_dim = [382, 402, 855, 880]
+    # botshots_dim = [382, 402, 910, 935]
     #
     # subframes = [topname_dim, topgoals_dim, topassists_dim, topsaves_dim, topshots_dim, botname_dim, botgoals_dim,
     #              botassists_dim, botsaves_dim, botshots_dim]
@@ -377,26 +497,36 @@ if __name__ == '__main__':
     # stats.get_ocr_info(frame, subframes)
     #
     # print("Timer")
-    # frame = cv2.imread("vid96timer.jpg")
-    # subframe = frame[10:35, 600:685]
+    # frame = cv2.imread("vid403timer.jpg")
+    # subframe = frame[10:35, 600:680]
     # stats.ocr(subframe, "timer")
     #
     # print("Winner")
-    # frame = cv2.imread("vid96winner.jpg")
-    # subframe = frame[305:330, 577:703]
+    # frame = cv2.imread("vid403winner.jpg")
+    # subframe = frame[302:330, 590:690]
     # stats.ocr(subframe, "winner")
 
-    # Some problems are that johnny can save a replay during the time I'd normally screenshot the end of a game
-    # Also some videos might have scoreboards that are slightly higher or lower than avg and not sure if that will be problematic
-    # This video ends at 1 second so it never selects a winner because it's still looking at timer
+    # frame = cv2.imread("vid266replay.jpg")
+    # subframe = frame[80:190, 505:825]
+    # stats.ocr(subframe, "replay")
+    #
+    # frame = cv2.imread("vid716replay.jpg")
+    # subframe = frame[80:230, 505:825]
+    # stats.ocr(subframe, "replay")
 
-    # Add vid96's stats to the 'rl' training language for better accuracy in era 4
+    # Video 211 is weird because no black screen, might have to review 199 - 230 ish manually
+
+    # Some problems are that johnny can save a replay during the time I'd normally screenshot the end of a game
+    # - just do manually as impossible to predict and solution would slow alg down too much
+    # Also some videos might have scoreboards that are slightly higher or lower than avg and not sure if that will be problematic
+    # No more series in era 7 after vid 392. Ensuing eras do not use series
 
     # Era list:
     # Era 1 is for videos 1-7 that don't have end of game celebrations
     # Era 2 is for videos 8-50 with the scoreboard being at the "2" variables except vid 10 and end game celebrations
     # Era 3 is for videos 51-94 with scoreboard being a bit higher for no reason
-    # Era 4 is for videos 95-255 with timer smaller, scoreboard smaller, and winner smaller
-    # Era 5 is for videos 256-360 with timer further down, winner smaller, scoreboard smaller
-    # Era 6 is for videos 361-402 with shorter celebration time and different scoreboard position. Also may do weird series thing
-    # Era 7 is for videos 403-717 with timer in different position and larger, scoreboard slightly larger
+    # Era 4 is for videos 95-198 with timer smaller, scoreboard smaller, and winner smaller
+    # Era 5 is for videos 199-265 just like era 4, but search for the games being replayed if necessary. Capture the "Thanks" in thanks for watching. Do Videos 199-210 manually. Video 211 starts black background
+    # Era 6 is for videos 266-360 with timer further down, winner smaller, scoreboard smaller
+    # Era 7 is for videos 361-402 with shorter celebration time and different scoreboard position. Also may do weird series thing. 361 - 392 is using the series
+    # Era 8 is for videos 403-717 with timer in different position and larger, scoreboard slightly larger
