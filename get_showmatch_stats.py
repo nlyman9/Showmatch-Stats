@@ -38,8 +38,8 @@ class getShowMatchStats:
         self.frame_stats_shots_bot = [410, 440, 1015, 1055]
 
         self.game_number = 1
-        self.show_ocr = True
-        self.show_video = True
+        self.show_ocr = False
+        self.show_video = False
 
     # Do Optical Character Recognition on img
     def ocr(self, img, config):
@@ -153,7 +153,7 @@ class getShowMatchStats:
                         text = self.check_for_replay_screen(frame, era)
                         if text == "replay":
                             # The next games of the video are just replays
-                            print("Rest of the video is replay")
+                            # print("Rest of the video is replay")
                             break
                 else:
                     # This is a legitimate game that should be counted so reset
@@ -166,7 +166,7 @@ class getShowMatchStats:
                     self.check_for_replay = False
                     count = 0
             count += 1
-            print("Count", count, "endgametime", self.endgametime)
+            # print("Count", count, "endgametime", self.endgametime)
             if self.show_video:
                 cv2.imshow('frame', gray)
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -400,6 +400,8 @@ class getShowMatchStats:
                 # print("Stat: ", info)
                 if count == 4:
                     newfile.write(info + "\n")
+                elif count == 9:
+                    newfile.write(info)
                 else:
                     newfile.write(info + ",")
             count += 1
@@ -459,14 +461,45 @@ def run_new_video(arglist):
     stats = getShowMatchStats()
     stats.editvideo(arglist[0], arglist[1], arglist[2])
 
+# Get the era based on the video's positioning in the playlist
+def get_era(num):
+    if 1 <= num <= 7:
+        return 1
+    elif 8 <= num <= 50:
+        return 2
+    elif 51 <= num <= 94:
+        return 3
+    elif 95 <= num <= 198:
+        return 4
+    elif 199 <= num <= 265:
+        return 5
+    elif 266 <= num <= 360:
+        return 6
+    elif 361 <= num <= 402:
+        return 7
+    else:
+        return 8
+
 
 if __name__ == '__main__':
-    stats = getShowMatchStats()
-    # List of arguments. list[0] is the video string, list[1] is the bar string, list[2] is the era integer
+    if len(sys.argv) != 3:
+        print("Number of arguments must be 2")
+        sys.exit()
 
-    # Input number of args for how many videos to run at the same time
-    args1 = ['Videos/vid529.mp4', 'Results/vid529-', 8]
-    list_of_args = [args1]
+    startofrange = int(sys.argv[1])
+    endofrange = int(sys.argv[2])
+
+    if endofrange - startofrange > 7:
+        print("Must input a maximum range of 8 videos")
+        sys.exit()
+
+    list_of_args = []
+    for i in range(startofrange, endofrange + 1):
+        args = ['Videos/vid{}.mp4'.format(i), 'Results/vid{}-'.format(i), get_era(i)]
+        list_of_args.append(args)
+
+    stats = getShowMatchStats()
+
     procs = []
     for ls in list_of_args:
         proc = Process(target=run_new_video, args=(ls,))
@@ -530,3 +563,5 @@ if __name__ == '__main__':
     # Era 6 is for videos 266-360 with timer further down, winner smaller, scoreboard smaller
     # Era 7 is for videos 361-402 with shorter celebration time and different scoreboard position. Also may do weird series thing. 361 - 392 is using the series
     # Era 8 is for videos 403-717 with timer in different position and larger, scoreboard slightly larger
+
+    # Stopped normalizing text documents at vid35. Start on vid36
